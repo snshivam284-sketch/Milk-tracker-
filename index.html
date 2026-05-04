@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0061a4">
+    <title>Milk Tracker Pro</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #0061a4;
+            --secondary-container: #d1e4ff;
+            --surface: #fdfbff;
+            --surface-container: #ffffff;
+            --text-main: #1a1c1e;
+            --text-sub: #74777f;
+            --error: #ba1a1a;
+            --glass: rgba(255, 255, 255, 0.8);
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #d1e4ff;
+                --secondary-container: #00497d;
+                --surface: #111318;
+                --surface-container: #1a1c1e;
+                --text-main: #e2e2e6;
+                --text-sub: #8e9199;
+                --glass: rgba(26, 28, 30, 0.85);
+            }
+        }
+
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; outline: none; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--surface);
+            color: var(--text-main);
+            margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            padding: 60px 24px 20px;
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            z-index: 10;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        header h1 { margin: 0; font-size: 22px; font-weight: 800; }
+
+        main { flex: 1; overflow-y: auto; padding: 0 20px 140px; -webkit-overflow-scrolling: touch; }
+
+        /* Dashboard Cards */
+        .card-hero {
+            background: linear-gradient(135deg, var(--primary), #004a7c);
+            border-radius: 32px; padding: 28px; color: white;
+            box-shadow: 0 20px 40px rgba(0, 97, 164, 0.2);
+            margin-top: 10px;
+        }
+
+        .hero-val { font-size: 42px; font-weight: 800; margin: 8px 0; }
+        .hero-label-wrap { display: flex; justify-content: space-between; align-items: center; }
+        .hero-label { font-size: 13px; font-weight: 700; opacity: 0.8; text-transform: uppercase; }
+        .nav-arrow { background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; }
+
+        .chart-wrap {
+            background: var(--surface-container);
+            border-radius: 32px; padding: 20px; margin: 24px 0;
+            border: 1px solid rgba(0,0,0,0.05);
+            height: 240px;
+        }
+
+        /* Lists */
+        .item-row {
+            background: var(--surface-container);
+            padding: 16px 20px; border-radius: 20px; margin-bottom: 12px;
+            display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid rgba(0,0,0,0.03);
+            transition: transform 0.2s;
+        }
+
+        .item-row:active { transform: scale(0.98); }
+
+        .item-info { display: flex; flex-direction: column; gap: 4px; }
+        .item-date { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px;}
+        .item-badge { font-size: 10px; background: var(--secondary-container); color: var(--primary); padding: 2px 6px; border-radius: 6px; font-weight: 800;}
+        .item-sub { font-size: 12px; color: var(--text-sub); font-weight: 600; }
+
+        .item-actions { display: flex; gap: 12px; align-items: center; }
+        .btn-icon { background: none; border: none; font-size: 18px; cursor: pointer; padding: 8px; border-radius: 12px; }
+        .btn-edit { color: var(--primary); background: var(--secondary-container); }
+        .btn-del { color: var(--error); background: rgba(186, 26, 26, 0.1); }
+
+        /* Navigation */
+        nav {
+            position: fixed; bottom: 0; width: 100%;
+            height: calc(85px + var(--safe-bottom));
+            background: var(--glass); backdrop-filter: blur(20px);
+            display: flex; justify-content: space-around;
+            padding-bottom: var(--safe-bottom);
+            border-top: 1px solid rgba(0,0,0,0.05);
+            z-index: 50;
+        }
+
+        .nav-item {
+            background: none; border: none; flex: 1;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: var(--text-sub); transition: 0.3s;
+        }
+
+        .nav-item.active { color: var(--primary); }
+        .nav-pill { width: 56px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+        .nav-item.active .nav-pill { background: var(--secondary-container); }
+
+        /* FAB */
+        .fab {
+            position: fixed; right: 20px; bottom: calc(var(--safe-bottom) + 100px);
+            width: 64px; height: 64px; border-radius: 20px;
+            background: var(--primary); color: white;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 12px 24px rgba(0, 97, 164, 0.3);
+            border: none; font-size: 30px; z-index: 40;
+        }
+
+        /* Modal Sheets */
+        .overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5); z-index: 100;
+            align-items: flex-end;
+        }
+
+        .sheet {
+            background: var(--surface); width: 100%;
+            border-radius: 32px 32px 0 0; padding: 32px 24px calc(32px + var(--safe-bottom));
+            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.1, 0.9, 0.2, 1);
+        }
+
+        .sheet.open { transform: translateY(0); }
+
+        .m3-input {
+            width: 100%; padding: 18px; border-radius: 16px;
+            border: 2px solid var(--secondary-container);
+            background: var(--surface); color: inherit; font-size: 16px;
+            margin-bottom: 20px; appearance: none;
+        }
+        
+        select.m3-input {
+            appearance: auto;
+            -webkit-appearance: auto;
+        }
+
+        .btn-main {
+            width: 100%; padding: 20px; border-radius: 100px;
+            background: var(--primary); color: white;
+            border: none; font-weight: 800; font-size: 16px; cursor: pointer;
+        }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed; bottom: calc(var(--safe-bottom) + 180px); left: 50%; transform: translateX(-50%) translateY(20px);
+            background: var(--text-main); color: var(--surface); padding: 12px 24px; border-radius: 100px;
+            font-size: 14px; font-weight: 600; box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 1000;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        
+        /* Empty State */
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-sub); }
+        .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+        
+        /* Checkbox styling */
+        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Milk Tracker</h1>
+        <div style="font-size: 12px; font-weight: 800; opacity: 0.6;" id="header-date"></div>
+    </header>
+
+    <main>
+        <section id="home" class="section active">
+            <div class="card-hero">
+                <div class="hero-label-wrap">
+                    <button class="nav-arrow" onclick="changeMonth(-1)">❮</button>
+                    <div class="hero-label" id="month-label"></div>
+                    <button class="nav-arrow" onclick="changeMonth(1)">❯</button>
+                </div>
+                <div class="hero-val" id="total-liters">0.0 L</div>
+                <div style="font-weight: 600;" id="total-cost">₹0 estimated</div>
+            </div>
+
+            <div class="chart-wrap">
+                <canvas id="mainChart"></canvas>
+            </div>
+
+            <h3 style="margin: 24px 0 16px; font-size: 18px;">Recent Activity</h3>
+            <div id="recent-logs"></div>
+        </section>
+
+        <section id="history" class="section">
+            <h2 style="font-weight: 800; margin-bottom: 24px;">All Records</h2>
+            <div id="history-logs"></div>
+        </section>
+
+        <section id="settings" class="section">
+            <h2 style="font-weight: 800; margin-bottom: 24px;">Settings</h2>
+            
+            <div class="card-hero" style="background: var(--surface-container); color: var(--text-main); border: 1px solid var(--secondary-container); padding: 20px;">
+                <label style="font-size: 12px; font-weight: 800; color: var(--text-sub);">MILK PRICE (₹/L)</label>
+                <input type="number" id="price-set" class="m3-input" style="margin-top:8px; margin-bottom:0;" oninput="updateSettings()" inputmode="decimal" min="0">
+            </div>
+
+            <div class="card-hero" style="background: var(--surface-container); color: var(--text-main); border: 1px solid var(--secondary-container); padding: 20px;">
+                <label style="font-size: 12px; font-weight: 800; color: var(--text-sub); display:block; margin-bottom: 8px;">PREFERENCES</label>
+                <div class="setting-row" style="border-bottom: none; padding-bottom: 0;">
+                    <span style="font-weight: 600;">Haptic Feedback</span>
+                    <input type="checkbox" id="haptic-toggle" onchange="updateSettings()" style="width: 20px; height: 20px; accent-color: var(--primary);">
+                </div>
+            </div>
+
+            <div class="card-hero" style="background: var(--surface-container); color: var(--text-main); border: 1px solid var(--secondary-container); padding: 20px;">
+                <label style="font-size: 12px; font-weight: 800; color: var(--text-sub); display:block; margin-bottom: 16px;">DATA MANAGEMENT</label>
+                
+                <button class="btn-main" style="background: var(--secondary-container); color: var(--primary); margin-bottom: 12px;" onclick="exportCSV()">Download Backup (CSV)</button>
+                <input type="file" id="csv-import" accept=".csv" style="display: none;" onchange="importCSV(event)">
+                <button class="btn-main" style="background: var(--surface); color: var(--text-main); border: 2px solid var(--secondary-container); margin-bottom: 24px;" onclick="document.getElementById('csv-import').click()">Restore Data (CSV)</button>
+
+                <button class="btn-main" style="background: rgba(186, 26, 26, 0.1); color: var(--error);" onclick="wipeData()">Reset Application</button>
+            </div>
+        </section>
+    </main>
+
+    <nav>
+        <button class="nav-item active" onclick="navigate('home', this)"><div class="nav-pill">🏠</div><span>Home</span></button>
+        <button class="nav-item" onclick="navigate('history', this)"><div class="nav-pill">📊</div><span>History</span></button>
+        <button class="nav-item" onclick="navigate('settings', this)"><div class="nav-pill">⚙️</div><span>Settings</span></button>
+    </nav>
+
+    <button class="fab" onclick="openModal()">+</button>
+
+    <div class="overlay" id="overlay" onclick="closeModal()">
+        <div class="sheet" id="sheet" onclick="event.stopPropagation()">
+            <h2 id="modal-title" style="margin: 0 0 24px 0; font-weight: 800;">Add Entry</h2>
+            <input type="hidden" id="edit-id">
+            
+            <label style="font-size: 12px; font-weight: 700; color: var(--text-sub);">AMOUNT (LITERS)</label>
+            <input type="number" id="in-vol" class="m3-input" placeholder="0.0" step="0.1" inputmode="decimal" min="0.1">
+
+            <div style="display: flex; gap: 12px;">
+                <div style="flex: 2;">
+                    <label style="font-size: 12px; font-weight: 700; color: var(--text-sub);">DATE</label>
+                    <input type="date" id="in-date" class="m3-input">
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-size: 12px; font-weight: 700; color: var(--text-sub);">TIME</label>
+                    <select id="in-time" class="m3-input">
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn-main" onclick="saveEntry()">Save Record</button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const AppState = {
+            logs: JSON.parse(localStorage.getItem('milk_db_v3')) || [],
+            price: localStorage.getItem('milk_price_v3') || 60,
+            haptics: localStorage.getItem('milk_haptics') !== 'false', // Default to true
+            
+            save() {
+                localStorage.setItem('milk_db_v3', JSON.stringify(this.logs));
+                localStorage.setItem('milk_price_v3', this.price);
+                localStorage.setItem('milk_haptics', this.haptics);
+            },
+            triggerHaptic() {
+                if(this.haptics && window.navigator.vibrate) window.navigator.vibrate(15);
+            }
+        };
+
+        let chart = null;
+        let viewedDate = new Date(); // Tracks the currently viewed month on the dashboard
+
+        // Migrate old data if upgrading from v2
+        if(localStorage.getItem('milk_db_v2') && AppState.logs.length === 0) {
+            AppState.logs = JSON.parse(localStorage.getItem('milk_db_v2'));
+            AppState.price = localStorage.getItem('milk_price_v2') || 60;
+            AppState.save();
+        }
+
+        // Init
+        document.getElementById('price-set').value = AppState.price;
+        document.getElementById('haptic-toggle').checked = AppState.haptics;
+        document.getElementById('header-date').innerText = new Date().toLocaleDateString('en-US', {day:'2-digit', month:'short'}).toUpperCase();
+        updateUI();
+
+        // Helpers
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        function formatNiceDate(dateString) {
+            // Fixes timezone parsing bugs across different browsers
+            const [year, month, day] = dateString.split('-');
+            const d = new Date(year, month - 1, day);
+            return d.toLocaleDateString('en-US', {day:'numeric', month:'short'});
+        }
+
+        // Navigation
+        function navigate(id, btn) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            btn.classList.add('active');
+            AppState.triggerHaptic();
+            
+            if(id === 'home') {
+                viewedDate = new Date(); // Reset to current month when going home
+                updateUI();
+            }
+            if(id === 'history') renderHistory();
+        }
+
+        function changeMonth(direction) {
+            viewedDate.setDate(1); // Fixes month skipping bug on the 31st
+            viewedDate.setMonth(viewedDate.getMonth() + direction);
+            AppState.triggerHaptic();
+            updateUI();
+        }
+
+        // Modal Logic
+        function openModal(editId = null) {
+            AppState.triggerHaptic();
+            const overlay = document.getElementById('overlay');
+            const sheet = document.getElementById('sheet');
+            
+            if(editId) {
+                const log = AppState.logs.find(l => l.id === editId);
+                document.getElementById('modal-title').innerText = "Edit Entry";
+                document.getElementById('edit-id').value = editId;
+                document.getElementById('in-vol').value = log.vol;
+                document.getElementById('in-date').value = log.date;
+                document.getElementById('in-time').value = log.time || 'AM';
+            } else {
+                document.getElementById('modal-title').innerText = "Add Entry";
+                document.getElementById('edit-id').value = "";
+                document.getElementById('in-vol').value = "";
+                
+                // Format today's date safely for the input field
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                document.getElementById('in-date').value = `${year}-${month}-${day}`;
+                
+                // Smart default: If it's past 4 PM, default to PM
+                const currentHour = today.getHours();
+                document.getElementById('in-time').value = currentHour >= 16 ? 'PM' : 'AM';
+            }
+
+            overlay.style.display = 'flex';
+            setTimeout(() => sheet.classList.add('open'), 10);
+        }
+
+        function closeModal() {
+            document.getElementById('sheet').classList.remove('open');
+            setTimeout(() => document.getElementById('overlay').style.display = 'none', 300);
+        }
+
+        // Data Entry
+        function saveEntry() {
+            const vol = parseFloat(document.getElementById('in-vol').value);
+            const date = document.getElementById('in-date').value;
+            const time = document.getElementById('in-time').value;
+            const editId = document.getElementById('edit-id').value;
+
+            // Validation
+            if(isNaN(vol) || vol <= 0) {
+                showToast("Please enter a valid amount");
+                return;
+            }
+            if(!date) {
+                showToast("Please select a date");
+                return;
+            }
+
+            if(editId) {
+                const idx = AppState.logs.findIndex(l => l.id == editId);
+                AppState.logs[idx] = { id: parseInt(editId), vol, date, time };
+                showToast("Record updated");
+            } else {
+                AppState.logs.push({ id: Date.now(), vol, date, time });
+                showToast("Record saved");
+            }
+
+            // Sort by Date (descending) and Time (PM before AM for same day)
+            AppState.logs.sort((a,b) => {
+                if (a.date === b.date) return (b.time === 'PM' ? 1 : 0) - (a.time === 'PM' ? 1 : 0);
+                return new Date(b.date) - new Date(a.date);
+            });
+            
+            AppState.save();
+            AppState.triggerHaptic();
+            closeModal();
+            updateUI();
+            
+            if(document.getElementById('history').classList.contains('active')) {
+                renderHistory();
+            }
+        }
+
+        function deleteLog(id) {
+            AppState.triggerHaptic();
+            if(confirm("Delete this record permanently?")) {
+                AppState.logs = AppState.logs.filter(l => l.id !== id);
+                AppState.save();
+                showToast("Record deleted");
+                renderHistory();
+                updateUI();
+            }
+        }
+
+        function updateSettings() {
+            AppState.price = document.getElementById('price-set').value || 0;
+            AppState.haptics = document.getElementById('haptic-toggle').checked;
+            AppState.save();
+            updateUI();
+        }
+
+        // UI Rendering
+        function updateUI() {
+            // YYYY-MM format
+            const viewYear = viewedDate.getFullYear();
+            const viewMonth = String(viewedDate.getMonth() + 1).padStart(2, '0');
+            const targetMonthStr = `${viewYear}-${viewMonth}`;
+            
+            const mData = AppState.logs.filter(l => l.date.startsWith(targetMonthStr));
+            const total = mData.reduce((s, e) => s + e.vol, 0);
+
+            document.getElementById('month-label').innerText = viewedDate.toLocaleDateString('en-US', {month:'long', year:'numeric'}).toUpperCase();
+            document.getElementById('total-liters').innerText = total.toFixed(1) + ' L';
+            document.getElementById('total-cost').innerText = '₹' + (total * AppState.price).toLocaleString();
+
+            renderRecent(mData);
+            renderChart(mData);
+        }
+
+        function renderRecent(data) {
+            const list = document.getElementById('recent-logs');
+            if(data.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🥛</div>
+                        <h4 style="margin:0">No milk logged yet</h4>
+                        <p style="font-size:12px; margin-top:8px;">Records for this month will appear here.</p>
+                    </div>`;
+                return;
+            }
+
+            list.innerHTML = data.slice(0, 4).map(l => `
+                <div class="item-row">
+                    <div class="item-info">
+                        <span class="item-date">
+                            ${formatNiceDate(l.date)}
+                            <span class="item-badge">${l.time || 'AM'}</span>
+                        </span>
+                        <span class="item-sub">₹${(l.vol * AppState.price).toFixed(0)}</span>
+                    </div>
+                    <div style="font-weight:800; font-size:18px;">${l.vol} L</div>
+                </div>
+            `).join('');
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-logs');
+            if(AppState.logs.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state" style="margin-top: 40px;">
+                        <div class="empty-icon">📂</div>
+                        <h4 style="margin:0">Your history is empty</h4>
+                        <p style="font-size:12px; margin-top:8px;">Tap the + button to add your first entry.</p>
+                    </div>`;
+                return;
+            }
+
+            list.innerHTML = AppState.logs.map(l => `
+                <div class="item-row">
+                    <div class="item-info">
+                        <span class="item-date">
+                            ${formatNiceDate(l.date)}
+                            <span class="item-badge">${l.time || 'AM'}</span>
+                        </span>
+                        <span class="item-sub">${l.vol} Liters • ₹${(l.vol * AppState.price).toFixed(0)}</span>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn-icon btn-edit" onclick="openModal(${l.id})">✎</button>
+                        <button class="btn-icon btn-del" onclick="deleteLog(${l.id})">✕</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderChart(data) {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            
+            // Daily Aggregation Logic
+            const dailyTotals = {};
+            data.forEach(log => {
+                if(!dailyTotals[log.date]) dailyTotals[log.date] = 0;
+                dailyTotals[log.date] += parseFloat(log.vol);
+            });
+
+            // Convert to array and sort chronologically
+            const sortedAggregated = Object.keys(dailyTotals)
+                .sort()
+                .map(date => ({ date, vol: dailyTotals[date] }));
+
+            if(chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedAggregated.map(l => l.date.split('-')[2]), // Just the day number
+                    datasets: [{
+                        data: sortedAggregated.map(l => l.vol),
+                        borderColor: '#0061a4',
+                        borderWidth: 4,
+                        tension: 0.4,
+                        pointRadius: sortedAggregated.length === 1 ? 6 : 2, // Larger point if only 1 entry
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#0061a4',
+                        pointBorderWidth: 2,
+                        fill: true,
+                        backgroundColor: (c) => {
+                            const g = c.chart.ctx.createLinearGradient(0,0,0,300);
+                            g.addColorStop(0, 'rgba(0,97,164,0.15)'); g.addColorStop(1, 'rgba(0,97,164,0)'); return g;
+                        }
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) { return context.parsed.y + ' L'; }
+                            }
+                        }
+                    },
+                    scales: { 
+                        y: { display: false, beginAtZero: true, suggestedMax: Math.max(...sortedAggregated.map(l=>l.vol), 1) + 1 }, 
+                        x: { grid: { display: false } } 
+                    }
+                }
+            });
+        }
+
+        // Data Management
+        function wipeData() {
+            AppState.triggerHaptic();
+            if(confirm("Are you sure? This will delete all your records and cannot be undone.")) { 
+                localStorage.clear(); 
+                location.reload(); 
+            }
+        }
+
+        function exportCSV() {
+            AppState.triggerHaptic();
+            if(AppState.logs.length === 0) {
+                showToast("No data to export");
+                return;
+            }
+            
+            let csvContent = "data:text/csv;charset=utf-8,ID,Date,Time,Volume(Liters)\n";
+            AppState.logs.forEach(log => {
+                csvContent += `${log.id},${log.date},${log.time || 'AM'},${log.vol}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `MilkTracker_Backup_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Backup Downloaded");
+        }
+
+        function importCSV(event) {
+            AppState.triggerHaptic();
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const text = e.target.result;
+                    const lines = text.split('\n');
+                    const newLogs = [];
+                    
+                    // Skip header (index 0)
+                    for(let i = 1; i < lines.length; i++) {
+                        if(!lines[i].trim()) continue;
+                        const [id, date, time, vol] = lines[i].split(',');
+                        if(date && vol) {
+                            newLogs.push({
+                                id: parseInt(id) || Date.now() + i,
+                                date: date.trim(),
+                                time: time ? time.trim() : 'AM',
+                                vol: parseFloat(vol)
+                            });
+                        }
+                    }
+
+                    if(newLogs.length > 0) {
+                        AppState.logs = newLogs.sort((a,b) => new Date(b.date) - new Date(a.date));
+                        AppState.save();
+                        updateUI();
+                        showToast(`Successfully imported ${newLogs.length} records`);
+                    } else {
+                        showToast("No valid data found in CSV");
+                    }
+                } catch (error) {
+                    showToast("Error importing file");
+                    console.error(error);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input
+        }
+    </script>
+</body>
+</html>
